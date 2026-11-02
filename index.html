@@ -56,6 +56,8 @@
     }
     @layer components {
       /* lesson typography */
+      section[data-module], #top { @apply scroll-mt-20; }
+      h2[tabindex="-1"]:focus, h3[tabindex="-1"]:focus { outline: none; }
       .lesson { @apply scroll-mt-24 border-t border-line pt-14 first-of-type:border-0 first-of-type:pt-6; }
       .lesson h3 { @apply text-2xl font-semibold tracking-tight text-ink sm:text-[1.7rem]; }
       .lesson h4 { @apply mt-10 text-lg font-semibold text-ink; }
@@ -155,6 +157,11 @@
       <a href="#top" class="truncate text-[15px] font-semibold text-ink">Digital Arts <span class="text-ink-mute">Masterclass</span></a>
       <p id="crumb" class="ml-2 hidden truncate text-xs text-ink-mute xl:block"></p>
       <div class="ml-auto flex items-center gap-3">
+        <button id="jump-btn" type="button" aria-haspopup="dialog" aria-controls="jump" class="flex h-9 items-center gap-2 rounded-xl border border-line bg-panel/70 px-2.5 text-sm text-ink-mute hover:border-accent hover:text-ink sm:px-3" aria-label="Jump to a section">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span class="hidden sm:inline">Jump to…</span>
+          <kbd class="hidden rounded border border-line px-1.5 font-mono text-[10px] md:inline">⌘K</kbd>
+        </button>
         <span class="hidden text-right text-[11px] leading-tight text-ink-mute sm:block"><span data-progress-detail></span></span>
         <!-- Colour-puck progress ring -->
         <div class="relative h-10 w-10" title="Course progress">
@@ -181,6 +188,17 @@
     <nav id="nav-mobile" class="flex-1 overflow-y-auto p-3"></nav>
     <div class="border-t border-line p-3"><button data-reset type="button" class="w-full rounded-xl px-3 py-2 text-xs text-ink-mute hover:bg-white/5 hover:text-rose-300">Reset progress</button></div>
   </aside>
+
+  <!-- ===================== Jump-to dialog ===================== -->
+  <dialog id="jump" class="m-0 mx-auto mt-[10vh] w-[calc(100%-2rem)] max-w-xl overflow-hidden rounded-2xl border border-line bg-panel p-0 text-ink-soft shadow-float backdrop:bg-black/60" aria-label="Jump to a section">
+    <div class="flex items-center gap-3 border-b border-line px-4">
+      <svg class="h-4 w-4 shrink-0 text-ink-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="jump-input" type="search" autocomplete="off" spellcheck="false" placeholder="Search modules and lessons…" class="h-12 flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink-mute focus:outline-none" role="combobox" aria-expanded="true" aria-controls="jump-list" aria-autocomplete="list" />
+      <kbd class="rounded border border-line px-1.5 font-mono text-[10px] text-ink-mute">Esc</kbd>
+    </div>
+    <ul id="jump-list" role="listbox" class="relative max-h-[60vh] overflow-y-auto p-2"></ul>
+    <p class="border-t border-line px-4 py-2 text-[11px] text-ink-mute">↑ ↓ to move · Enter to jump · press <kbd class="font-mono">/</kbd> or <kbd class="font-mono">⌘K</kbd> anywhere</p>
+  </dialog>
 
   <div class="flex">
     <!-- ===================== Desktop sidebar (Procreate side panel) ===================== -->
@@ -238,6 +256,10 @@
             <div class="card"><p class="font-mono text-2xl text-ink">🖐</p><p class="text-xs text-ink-mute">drag, draw &amp; compare demos</p></div>
             <div class="card"><p class="font-mono text-2xl text-ink">✎</p><p class="text-xs text-ink-mute">a practice brief per module</p></div>
           </div>
+          <nav class="mt-10" aria-labelledby="modgrid-h">
+            <p id="modgrid-h" class="eyebrow">Jump to a module</p>
+            <div id="module-grid" class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"></div>
+          </nav>
           <p class="mt-4 text-xs text-ink-mute">Look for <span class="rounded bg-accent px-1.5 py-0.5 text-white">⇆</span> sliders: drag them to compare before and after.</p>
         </section>
 

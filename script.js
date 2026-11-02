@@ -150,7 +150,7 @@
       details.innerHTML = `
         <summary class="flex cursor-pointer list-none items-start gap-3 rounded-xl px-3 py-2.5 hover:bg-white/5">
           <span class="mt-0.5 font-mono text-[12.5px] text-accent">${mod.num}</span>
-          <span class="flex-1 text-[15px] font-semibold leading-snug text-ink">${mod.title}
+          <span class="flex-1 text-[15px] font-semibold leading-snug text-ink"><a href="#${mod.id}" data-nav-module-link="${mod.id}" class="nav-link hover:text-accent">${mod.title}</a>
             <span class="mt-1 flex items-center gap-2 text-[11px] font-normal uppercase tracking-widest text-ink-mute">
               <span data-mod-count="${mod.id}">0/${lessons.length}</span> · ~${mins} min read</span></span>
           <svg class="mt-1 h-3.5 w-3.5 shrink-0 text-ink-mute transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6"/></svg>
@@ -246,7 +246,8 @@
       const scroller = $('#sidebar-scroll');
       if (active && scroller) {
         const r = active.getBoundingClientRect(); const sr = scroller.getBoundingClientRect();
-        if (r.top < sr.top + 40 || r.bottom > sr.bottom - 40) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        // Scroll only the sidebar — scrollIntoView() would also scroll the window and cancel an in-flight jump
+        if (r.top < sr.top + 40 || r.bottom > sr.bottom - 40) scroller.scrollTo({ top: scroller.scrollTop + (r.top - sr.top) - (sr.height - r.height) / 2, behavior: 'smooth' });
       }
       const mod = document.getElementById(id)?.closest('section[data-module]');
       const crumb = $('#crumb');
@@ -270,6 +271,91 @@
     openBtn.addEventListener('click', open); closeBtn.addEventListener('click', close); scrim.addEventListener('click', close);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
     d.addEventListener('click', (e) => { if (e.target.closest('a[href^="#"]')) close(); });
+  }
+
+  /* ------------------------------------------------------------------------
+     Jump-to — hero module grid + searchable dialog (⌘K / Ctrl+K / "/")
+     ------------------------------------------------------------------------ */
+  function moduleGrid() {
+    const grid = $('#module-grid'); if (!grid) return;
+    grid.innerHTML = CURRICULUM.map((m) => {
+      const s = document.getElementById(m.id);
+      const n = s ? $$('article[data-lesson]', s).length : 0;
+      const inner = `<span class="font-mono text-[12.5px] ${s ? 'text-accent' : 'text-ink-mute'}">${m.num}</span>
+        <span class="mt-1 block font-semibold leading-snug text-ink">${m.title}</span>
+        <span class="mt-1 block text-xs text-ink-mute">${s ? `${n} lessons · ${m.blurb}` : 'Coming soon'}</span>`;
+      return s
+        ? `<a href="#${m.id}" class="card block transition hover:border-accent">${inner}</a>`
+        : `<div class="card opacity-45" aria-disabled="true">${inner}</div>`;
+    }).join('');
+  }
+
+  function jumpTo() {
+    const dlg = $('#jump'), input = $('#jump-input'), list = $('#jump-list'), btn = $('#jump-btn');
+    if (!dlg || !input || !list) return;
+    const entries = [];
+    CURRICULUM.forEach((m) => {
+      const s = document.getElementById(m.id); if (!s) return;
+      entries.push({ id: m.id, kind: 'module', label: m.title, meta: `Module ${m.num}` });
+      $$('article[data-lesson]', s).forEach((a, i) => entries.push({
+        id: a.id, kind: 'lesson', label: a.dataset.title || a.querySelector('h3')?.textContent || a.id,
+        meta: `${m.num.replace(/^0/, '')}.${i + 1} · ${m.title}`,
+      }));
+    });
+    const norm = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    entries.forEach((e) => (e.hay = norm(`${e.label} ${e.meta}`)));
+    const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    let shown = [], sel = 0;
+
+    const render = () => {
+      const terms = norm(input.value).split(/\s+/).filter(Boolean);
+      shown = terms.length ? entries.filter((e) => terms.every((t) => e.hay.includes(t))) : entries;
+      sel = Math.min(sel, Math.max(0, shown.length - 1));
+      list.innerHTML = shown.length ? shown.map((e, i) => `
+        <li role="option" id="jump-opt-${i}" data-i="${i}" aria-selected="${i === sel}"
+            class="flex cursor-pointer items-baseline gap-3 rounded-lg px-3 py-2 ${e.kind === 'module' ? 'mt-1' : 'pl-7'} ${i === sel ? 'bg-accent/20 text-ink' : 'hover:bg-white/5'}">
+          <span class="flex-1 ${e.kind === 'module' ? 'font-semibold text-ink' : 'text-[14px]'}">${esc(e.label)}</span>
+          <span class="shrink-0 font-mono text-[11px] text-ink-mute">${esc(e.kind === 'module' ? e.meta : e.meta.split(' · ')[0])}</span>
+        </li>`).join('')
+        : '<li class="px-3 py-6 text-center text-sm text-ink-mute">No matching lessons</li>';
+      input.setAttribute('aria-activedescendant', shown.length ? `jump-opt-${sel}` : '');
+      const opt = $(`#jump-opt-${sel}`, list);
+      if (opt) { // keep the highlighted option visible without touching the page scroll
+        if (opt.offsetTop < list.scrollTop) list.scrollTop = opt.offsetTop;
+        else if (opt.offsetTop + opt.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = opt.offsetTop + opt.offsetHeight - list.clientHeight;
+      }
+    };
+    const go = (e) => {
+      if (!e) return;
+      dlg.close();
+      const target = document.getElementById(e.id);
+      history.pushState(null, '', `#${e.id}`);
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const h = target.querySelector('h2, h3');
+      if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+    };
+    const open = () => {
+      if (dlg.open) return;
+      $('#drawer-close')?.click();
+      input.value = ''; sel = 0; render();
+      dlg.showModal(); input.focus();
+    };
+
+    btn?.addEventListener('click', open);
+    input.addEventListener('input', () => { sel = 0; render(); });
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); sel = Math.min(sel + 1, shown.length - 1); render(); }
+      else if (ev.key === 'ArrowUp') { ev.preventDefault(); sel = Math.max(sel - 1, 0); render(); }
+      else if (ev.key === 'Enter') { ev.preventDefault(); go(shown[sel]); }
+    });
+    list.addEventListener('click', (ev) => { const li = ev.target.closest('[data-i]'); if (li) go(shown[+li.dataset.i]); });
+    list.addEventListener('mousemove', (ev) => { const li = ev.target.closest('[data-i]'); if (li && +li.dataset.i !== sel) { sel = +li.dataset.i; render(); } });
+    dlg.addEventListener('click', (ev) => { if (ev.target === dlg) dlg.close(); }); // backdrop click
+    document.addEventListener('keydown', (ev) => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+      if ((ev.key === 'k' || ev.key === 'K') && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); dlg.open ? dlg.close() : open(); }
+      else if (ev.key === '/' && !typing && !dlg.open) { ev.preventDefault(); open(); }
+    });
   }
 
   /* ------------------------------------------------------------------------
@@ -1051,6 +1137,8 @@
     Store.load();
     buildNav($('#nav-desktop'));
     buildNav($('#nav-mobile'));
+    moduleGrid();
+    jumpTo();
     injectCompleteButtons();
     mountWidgets();
     readableWideFigures();
